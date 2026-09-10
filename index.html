@@ -33,8 +33,8 @@
                 <i class="fa-solid fa-lock"></i>
             </div>
             <div>
-                <h2 class="text-xl font-bold text-slate-900">Acceso Restringido HABITAT</h2>
-                <p class="text-xs text-slate-500 mt-1">Ingresa el PIN de seguridad para acceder al Panel de Control.</p>
+                <h2 class="text-xl font-bold text-slate-900">Acceso Restringido</h2>
+                <p class="text-xs text-slate-500 mt-1">Ingresa el PIN de seguridad para acceder al Proyecto Habitat.</p>
             </div>
 
             <form onsubmit="validarPIN(event)" class="space-y-3">
@@ -894,7 +894,7 @@
             document.getElementById("modal-form").classList.remove("hidden");
         }
 
-        // --- EXPORTAR A CSV ---
+        // --- EXPORTAR A CSV CON TODAS LAS COLUMNAS CALCULADAS ---
         function exportCSV() {
             if (!tramites || tramites.length === 0) {
                 alert("No hay trámites registrados para exportar.");
@@ -902,19 +902,36 @@
             }
 
             let csvString = "\uFEFF";
-            csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Plazo (Dias Habiles),Fecha Cierre Real\n";
+            // Encabezados idénticos a los de la tabla visual
+            csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Dias Habiles Oficiales,F. Compromiso Calc.,Fecha Cierre Real,Dias Habiles Reales,Desfase Habiles,Evaluacion Dependencia\n";
 
             tramites.forEach(t => {
+                const info = getStatusInfo(t);
                 const row = [
                     `"${t.codigo || t.id}"`,
                     `"${(t.nombre || '').replace(/"/g, '""')}"`,
                     `"${(t.responsable || '').replace(/"/g, '""')}"`,
                     `"${normalizarFecha(t.fechaInicio)}"`,
                     `"${t.diasHabilesOficiales || 0}"`,
-                    `"${normalizarFecha(t.fechaCierre)}"`
+                    `"${info.fechaCompromiso}"`,
+                    `"${normalizarFecha(t.fechaCierre)}"`,
+                    `"${info.diasHabilesReales}"`,
+                    `"${info.desfaseHabiles > 0 ? '+' + info.desfaseHabiles : info.desfaseHabiles}"`,
+                    `"${info.indicador}"`
                 ];
                 csvString += row.join(",") + "\n";
             });
+
+            const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Tramites_HABITAT_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
 
             const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
