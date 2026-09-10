@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Trámites y Línea de Tiempo - HABITAT</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- html2pdf Library para exportar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @media print { .no-print { display: none !important; } body { background-color: white !important; padding: 0 !important; } }
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
+
+    <!-- PANTALLA DE ACCESO POR PIN -->
+    <div id="pantalla-login" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Acceso Restringido HABITAT</h2>
+                <p class="text-xs text-slate-500 mt-1">Ingresa el PIN de seguridad para acceder al Panel de Control.</p>
+            </div>
+
+            <form onsubmit="validarPIN(event)" class="space-y-3">
+                <input type="password" id="input-pin" required maxlength="15" placeholder="PIN de acceso" class="w-full text-center text-lg tracking-widest px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+                
+                <div id="error-pin" class="hidden text-xs text-rose-600 font-semibold bg-rose-50 p-2 rounded-lg">
+                    PIN incorrecto o sin acceso al servidor.
+                </div>
+
+                <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-sm transition">
+                    Ingresar al Sistema
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL DEL REPORTIADAR -->
+    <div id="contenido-reporte" class="flex-1 w-full flex flex-col hidden">
+
+        <!-- Header / Navbar -->
+        <header class="bg-slate-900 text-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                        <i class="fa-solid fa-building-user text-blue-400"></i> CONTROL DE TRÁMITES HABITAT
+                    </h1>
+                    <p class="text-xs text-slate-400 mt-1">Panel Unificado: Registro de Trámites, Cronograma Mensual y Proyección Global de Gestión</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 no-print">
+                    <button onclick="cargarDatos()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5" title="Sincronizar datos">
+                        <i class="fa-solid fa-rotate" id="icon-sync"></i> Sync
+                    </button>
+                    <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-semibold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Agregar Trámite
+                    </button>
+                    <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm font-semibold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5" title="Exportar a CSV">
+                        <i class="fa-solid fa-file-excel"></i> CSV
+                    </button>
+                    <button onclick="generarPDF(event)" class="bg-rose-600 hover:bg-rose-700 text-white text-xs md:text-sm font-semibold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5" title="Generar PDF">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </button>
+                    <button onclick="cerrarSesion()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs p-2 rounded-lg transition" title="Cerrar sesión">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Container -->
+        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex-1 w-full flex flex-col gap-8">
+
+            <!-- Banner de Proyección Global del Proyecto HABITAT -->
+            <section class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl p-6 shadow-lg border border-blue-900/50">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                        <span class="bg-blue-500/20 text-blue-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-blue-400/30 mb-2 inline-block">
+                            <i class="fa-solid fa-compass mr-1"></i> Proyección Global de Gestión
+                        </span>
+                        <h2 class="text-xl font-extrabold text-white">Duración Total Estimada de Trámites</h2>
+                        <p class="text-xs text-slate-300 mt-1">Periodo transcurrido desde la fecha de inicio del primer trámite hasta la última fecha de cierre o término proyectado.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:w-auto w-full">
+                        <div class="bg-white/10 backdrop-blur-md p-3.5 rounded-xl border border-white/10 text-center">
+                            <span class="block text-[10px] text-blue-200 uppercase font-semibold">Primer Inicio</span>
+                            <span id="proj-primer-inicio" class="text-base font-mono font-bold text-white mt-0.5 block">-</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-md p-3.5 rounded-xl border border-white/10 text-center">
+                            <span class="block text-[10px] text-blue-200 uppercase font-semibold">Último Cierre Proyectado</span>
+                            <span id="proj-ultimo-cierre" class="text-base font-mono font-bold text-emerald-400 mt-0.5 block">-</span>
+                        </div>
+                        <div class="bg-blue-600/30 backdrop-blur-md p-3.5 rounded-xl border border-blue-400/30 text-center">
+                            <span class="block text-[10px] text-blue-200 uppercase font-semibold">Tiempo Total Proyectado</span>
+                            <span id="proj-duracion-total" class="text-base font-bold text-amber-300 mt-0.5 block">-</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Summary Cards -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Trámites</p>
+                        <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Cumplió Tiempo Oficial</p>
+                        <p id="stat-tiempo" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Dependencia Retrasada</p>
+                        <p id="stat-desfasado" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Concluidos</p>
+                        <p id="stat-concluidos" class="text-2xl font-bold text-slate-600 mt-1">0</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-square-check"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN SUPERIOR: LÍNEA DE TIEMPO MENSUAL (GANTT) -->
+            <section id="view-timeline" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-gantt text-blue-600"></i> Línea de Tiempo Mensual y Cumplimiento
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">La barra representa la duración real del trámite. Las líneas verticales punteadas marcan el <strong>Primer Inicio</strong> y el <strong>Último Cierre</strong> del proyecto.</p>
+                    </div>
+                    <!-- Leyenda -->
+                    <div class="flex flex-wrap items-center gap-3 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
+                            <span class="text-slate-700 font-medium">Dentro del Plazo</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-rose-500 inline-block"></span>
+                            <span class="text-slate-700 font-medium">Dependencia Retrasada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-blue-500 inline-block"></span>
+                            <span class="text-slate-700 font-medium">En Proceso</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 border-l border-slate-300 pl-2">
+                            <span class="w-3 h-3 rounded bg-amber-500 inline-block"></span>
+                            <span class="text-slate-700 font-bold">Hitos Globales (Inicio/Fin)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Chart Area -->
+                <div class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-xl bg-white">
+                    <div id="timeline-monthly-container" class="min-w-[950px]">
+                        <!-- Generado Dinámicamente -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN INFERIOR: TABLA REGISTRO DE TRÁMITES -->
+            <section id="view-table" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-blue-600"></i> Tabla de Registro de Trámites
+                    </h2>
+                    <span class="text-xs text-slate-500 font-medium" id="estado-carga">
+                        <i class="fa-solid fa-circle-check text-emerald-500"></i> Conectado en vivo
+                    </span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="p-3">ID / Trámite</th>
+                                <th class="p-3">Dependencia</th>
+                                <th class="p-3 text-center">F. Inicio</th>
+                                <th class="p-3 text-center">Días Hábiles Oficiales</th>
+                                <th class="p-3 text-center">F. Compromiso Calc.</th>
+                                <th class="p-3 text-center">F. Cierre Real</th>
+                                <th class="p-3 text-center">Días Hábiles Reales</th>
+                                <th class="p-3 text-center">Desfase Hábiles</th>
+                                <th class="p-3 text-center">Evaluación Dependencia</th>
+                                <th class="p-3 text-center no-print">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tramites-tbody" class="divide-y divide-slate-200">
+                            <!-- Filas Dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 py-4 mt-auto no-print">
+            <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+                Control de Trámites y Tiempos &copy; Proyectos HABITAT - Panel Unificado
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Modal Form (Add / Edit) -->
+    <div id="modal-form" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
+            <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                <h3 id="modal-title" class="font-bold text-lg">Agregar Trámite HABITAT</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="form-tramite" onsubmit="saveTramite(event)" class="p-6 space-y-4">
+                <input type="hidden" id="item-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nombre del Trámite HABITAT *</label>
+                    <input type="text" id="nombre" required maxlength="100" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej. Licencia de Uso de Suelo HABITAT">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Dependencia / Responsable *</label>
+                    <input type="text" id="responsable" required placeholder="Ej. Secretaría de Desarrollo Urbano" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Fecha de Inicio *</label>
+                        <input type="date" id="fechaInicio" onchange="updateCalculatedCompromiso()" required class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Plazo Oficial (Días Hábiles) *</label>
+                        <input type="number" min="1" max="365" id="diasHabilesOficiales" oninput="updateCalculatedCompromiso()" required class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Ej. 15">
+                    </div>
+                </div>
+
+                <!-- Nota sobre fecha de compromiso calculada -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 flex items-center justify-between">
+                    <div>
+                        <span class="font-bold block">Fecha Compromiso Prometida:</span>
+                        <span id="fechaCompromisoCalculadaText" class="font-mono font-semibold text-blue-900">Selecciona fecha y días hábiles</span>
+                    </div>
+                    <i class="fa-solid fa-calculator text-blue-400 text-lg"></i>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Fecha Cierre Real (Opcional)</label>
+                    <input type="date" id="fechaCierre" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <p class="text-[11px] text-slate-400 mt-1">Si la dependencia aún no entrega el trámite, déjalo en blanco para medir respecto a hoy.</p>
+                </div>
+
+                <div id="error-validacion" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2.5 rounded-lg font-semibold"></div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
+                    <button type="submit" id="btn-guardar" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow">Guardar Trámite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // CONFIGURACIÓN DE URL APPS SCRIPT VERSIÓN 4
+        const API_URL = "https://script.google.com/macros/s/AKfycby00D5Yk9xmWEglaOtyWP0hkpCwT8XJg8NUmWQFW_3gPy_MeQ9CWQPz0dafKaX6LyZObQ/exec";
+
+        let tramites = [];
+
+        function getPIN() {
+            return localStorage.getItem("habitat_pin") || "";
+        }
+
+        function normalizarFecha(f) {
+            if (!f) return "";
+            let str = String(f).trim();
+            if (str.includes("T")) str = str.split("T")[0];
+            const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            return match ? match[0] : "";
+        }
+
+        // --- VALIDACIÓN DE PIN CONTRA SERVIDOR (PESTAÑA HABITAT) ---
+        async function validarPIN(e) {
+            e.preventDefault();
+            const pinIngresado = document.getElementById("input-pin").value.trim();
+            const errorDiv = document.getElementById("error-pin");
+            const btnLogin = document.getElementById("btn-login");
+
+            try {
+                btnLogin.disabled = true;
+                btnLogin.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verificando...`;
+
+                const urlFinal = `${API_URL}?pin=${encodeURIComponent(pinIngresado)}&hoja=HABITAT`;
+                const res = await fetch(urlFinal, { method: "GET", redirect: "follow" });
+                const textResponse = await res.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(textResponse);
+                } catch(pErr) {
+                    throw new Error("Respuesta no válida.");
+                }
+
+                if (data.error) {
+                    errorDiv.innerText = "PIN incorrecto. Acceso denegado.";
+                    errorDiv.classList.remove("hidden");
+                } else {
+                    localStorage.setItem("habitat_pin", pinIngresado);
+                    errorDiv.classList.add("hidden");
+                    iniciarAplicacion(data);
+                }
+            } catch (err) {
+                console.error("Error al validar PIN:", err);
+                errorDiv.innerText = "Error de conexión con el servidor de Google.";
+                errorDiv.classList.remove("hidden");
+            } finally {
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = `Ingresar al Sistema`;
+            }
+        }
+
+        function comprobarSesion() {
+            const pinGuardado = getPIN();
+            if (pinGuardado) cargarDatos();
+        }
+
+        function iniciarAplicacion(datosServidor) {
+            document.getElementById("pantalla-login").classList.add("hidden");
+            document.getElementById("contenido-reporte").classList.remove("hidden");
+            
+            if (datosServidor) procesarDatosArray(datosServidor);
+            else cargarDatos();
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem("habitat_pin");
+            location.reload();
+        }
+
+        // --- CARGAR DATOS DESDE LA PESTAÑA HABITAT ---
+        async function cargarDatos() {
+            const pin = getPIN();
+            if (!pin) return;
+
+            const estadoUI = document.getElementById("estado-carga");
+            const iconSync = document.getElementById("icon-sync");
+            
+            try {
+                if (iconSync) iconSync.classList.add("fa-spin");
+                estadoUI.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-blue-500"></i> Sincronizando...`;
+
+                const res = await fetch(`${API_URL}?pin=${encodeURIComponent(pin)}&hoja=HABITAT`, { method: "GET", redirect: "follow" });
+                const textResponse = await res.text();
+                const data = JSON.parse(textResponse);
+
+                if (data.error) {
+                    cerrarSesion();
+                    return;
+                }
+
+                document.getElementById("pantalla-login").classList.add("hidden");
+                document.getElementById("contenido-reporte").classList.remove("hidden");
+
+                procesarDatosArray(data);
+                estadoUI.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500"></i> Conectado en vivo`;
+            } catch (error) {
+                console.error("Error al cargar datos:", error);
+                estadoUI.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-500"></i> Error de conexión`;
+            } finally {
+                if (iconSync) iconSync.classList.remove("fa-spin");
+            }
+        }
+
+        function procesarDatosArray(data) {
+            tramites = data.map(item => ({
+                id: item.id,
+                codigo: item.id.toString().startsWith("HAB") ? item.id : `HAB-TR-${item.id}`,
+                nombre: item.nombre,
+                responsable: item.dependencia || item.responsable,
+                fechaInicio: normalizarFecha(item.inicio || item.fechaInicio),
+                diasHabilesOficiales: parseInt(item.plazo || item.diasHabilesOficiales, 10) || 0,
+                fechaCierre: normalizarFecha(item.cierre || item.fechaCierre)
+            }));
+            render();
+        }
+
+        // --- CÁLCULOS DE DÍAS HÁBILES ---
+        function isBusinessDay(date) {
+            const day = date.getDay();
+            return day !== 0 && day !== 6;
+        }
+
+        function addBusinessDays(startDateStr, numBusinessDays) {
+            const start = normalizarFecha(startDateStr);
+            if (!start || !numBusinessDays) return "";
+            let [y, m, d] = start.split('-').map(Number);
+            let curr = new Date(y, m - 1, d);
+            let added = 0;
+            while (added < numBusinessDays) {
+                curr.setDate(curr.getDate() + 1);
+                if (isBusinessDay(curr)) added++;
+            }
+            const anio = curr.getFullYear();
+            const mes = String(curr.getMonth() + 1).padStart(2, "0");
+            const dia = String(curr.getDate()).padStart(2, "0");
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function countBusinessDays(startDateStr, endDateStr) {
+            const f1 = normalizarFecha(startDateStr);
+            const f2 = normalizarFecha(endDateStr);
+            if (!f1 || !f2 || f1 === f2) return 0;
+            
+            let [y1, m1, d1] = f1.split('-').map(Number);
+            let [y2, m2, d2] = f2.split('-').map(Number);
+            let dInicio = new Date(y1, m1 - 1, d1);
+            let dFin = new Date(y2, m2 - 1, d2);
+            let signo = dFin >= dInicio ? 1 : -1;
+            let menor = dFin >= dInicio ? new Date(dInicio) : new Date(dFin);
+            let mayor = dFin >= dInicio ? new Date(dFin) : new Date(dFin);
+            let count = 0;
+            let cursor = new Date(menor);
+            while (cursor < mayor) {
+                cursor.setDate(cursor.getDate() + 1);
+                if (isBusinessDay(cursor)) count++;
+            }
+            return count * signo;
+        }
+
+        function getStatusInfo(item) {
+            const fechaCompromiso = addBusinessDays(item.fechaInicio, parseInt(item.diasHabilesOficiales));
+            const endStr = item.fechaCierre ? item.fechaCierre : new Date().toISOString().split('T')[0];
+            
+            const diasHabilesReales = countBusinessDays(item.fechaInicio, endStr);
+            const desfaseHabiles = diasHabilesReales - parseInt(item.diasHabilesOficiales);
+
+            if (item.fechaCierre) {
+                const enTiempo = desfaseHabiles <= 0;
+                return {
+                    fechaCompromiso: fechaCompromiso,
+                    diasHabilesReales: diasHabilesReales,
+                    desfaseHabiles: desfaseHabiles,
+                    estatus: "Concluido",
+                    indicador: enTiempo ? "EN TIEMPO OFICIAL" : "DEPENDENCIA RETRASADA",
+                    indClass: enTiempo ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800",
+                    barColor: enTiempo ? "bg-emerald-500" : "bg-rose-500"
+                };
+            } else {
+                const isLate = desfaseHabiles > 0;
+                return {
+                    fechaCompromiso: fechaCompromiso,
+                    diasHabilesReales: diasHabilesReales,
+                    desfaseHabiles: desfaseHabiles,
+                    estatus: isLate ? "En Proceso (Atrasado)" : "En Proceso",
+                    indicador: isLate ? "DEPENDENCIA RETRASADA" : "EN TIEMPO OFICIAL",
+                    indClass: isLate ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800",
+                    barColor: isLate ? "bg-rose-500" : "bg-blue-500"
+                };
+            }
+        }
+
+        function updateCalculatedCompromiso() {
+            const start = document.getElementById("fechaInicio").value;
+            const days = document.getElementById("diasHabilesOficiales").value;
+            const target = document.getElementById("fechaCompromisoCalculadaText");
+
+            if (start && days) {
+                const calcDate = addBusinessDays(start, parseInt(days));
+                target.innerText = `${calcDate} (${days} días hábiles)`;
+            } else {
+                target.innerText = "Selecciona fecha y días hábiles";
+            }
+        }
+
+        function render() {
+            renderTable();
+            renderMonthlyTimeline();
+            renderStats();
+            renderGlobalProjection();
+        }
+
+        function renderGlobalProjection() {
+            if (tramites.length === 0) {
+                document.getElementById("proj-primer-inicio").innerText = "-";
+                document.getElementById("proj-ultimo-cierre").innerText = "-";
+                document.getElementById("proj-duracion-total").innerText = "-";
+                return;
+            }
+
+            let startDates = [];
+            let endDates = [];
+
+            tramites.forEach(item => {
+                if (item.fechaInicio) startDates.push(new Date(item.fechaInicio + 'T00:00:00'));
+                const info = getStatusInfo(item);
+                const fin = item.fechaCierre ? new Date(item.fechaCierre + 'T00:00:00') : new Date(info.fechaCompromiso + 'T00:00:00');
+                endDates.push(fin);
+            });
+
+            const minStart = new Date(Math.min(...startDates));
+            const maxEnd = new Date(Math.max(...endDates));
+
+            const minStartStr = minStart.toISOString().split('T')[0];
+            const maxEndStr = maxEnd.toISOString().split('T')[0];
+
+            const diffTime = maxEnd - minStart;
+            const diasNaturales = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diasHabiles = countBusinessDays(minStartStr, maxEndStr);
+
+            document.getElementById("proj-primer-inicio").innerText = minStartStr;
+            document.getElementById("proj-ultimo-cierre").innerText = maxEndStr;
+            document.getElementById("proj-duracion-total").innerText = `${diasHabiles} Días Hábiles (${diasNaturales} días naturales)`;
+        }
+
+        function renderStats() {
+            let total = tramites.length;
+            let tiempoCount = 0;
+            let desfasadoCount = 0;
+            let concluidosCount = 0;
+
+            tramites.forEach(t => {
+                const info = getStatusInfo(t);
+                if (t.fechaCierre) concluidosCount++;
+                if (info.desfaseHabiles <= 0) tiempoCount++;
+                else desfasadoCount++;
+            });
+
+            document.getElementById("stat-total").innerText = total;
+            document.getElementById("stat-tiempo").innerText = tiempoCount;
+            document.getElementById("stat-desfasado").innerText = desfasadoCount;
+            document.getElementById("stat-concluidos").innerText = concluidosCount;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById("tramites-tbody");
+            tbody.innerHTML = "";
+
+            if (tramites.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">No hay trámites registrados. ¡Haz clic en 'Agregar Trámite'!</td></tr>`;
+                return;
+            }
+
+            tramites.forEach((item) => {
+                const info = getStatusInfo(item);
+                const desfaseTexto = info.desfaseHabiles > 0 
+                    ? `<span class="text-rose-600 font-bold">+${info.desfaseHabiles} días hábiles</span>` 
+                    : `<span class="text-emerald-600 font-bold">${info.desfaseHabiles} días hábiles</span>`;
+
+                const row = document.createElement("tr");
+                row.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                row.innerHTML = `
+                    <td class="p-3">
+                        <span class="text-xs font-mono font-bold text-slate-400 block">${item.codigo || 'HAB-TR'}</span>
+                        <span class="font-semibold text-slate-800">${item.nombre}</span>
+                    </td>
+                    <td class="p-3 text-slate-600">${item.responsable}</td>
+                    <td class="p-3 text-center text-slate-600 font-mono text-xs">${item.fechaInicio}</td>
+                    <td class="p-3 text-center font-semibold text-blue-700 bg-blue-50/50">${item.diasHabilesOficiales} días</td>
+                    <td class="p-3 text-center text-slate-700 font-mono text-xs font-semibold">${info.fechaCompromiso}</td>
+                    <td class="p-3 text-center text-slate-600 font-mono text-xs">${item.fechaCierre || '<span class="text-amber-600 font-semibold">En proceso</span>'}</td>
+                    <td class="p-3 text-center font-mono font-semibold">${info.diasHabilesReales} días</td>
+                    <td class="p-3 text-center font-mono text-xs">${desfaseTexto}</td>
+                    <td class="p-3 text-center">
+                        <span class="text-xs px-2.5 py-1 rounded-md font-bold tracking-wider ${info.indClass}">${info.indicador}</span>
+                    </td>
+                    <td class="p-3 text-center space-x-1 no-print">
+                        <button onclick="editTramite('${item.id}')" class="text-slate-500 hover:text-blue-600 p-1.5 rounded" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteTramite('${item.id}')" class="text-slate-500 hover:text-rose-600 p-1.5 rounded" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderMonthlyTimeline() {
+            const container = document.getElementById("timeline-monthly-container");
+            container.innerHTML = "";
+
+            if (tramites.length === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-400">Sin trámites para mostrar en la línea del tiempo.</div>`;
+                return;
+            }
+
+            let allDates = [];
+            tramites.forEach(t => {
+                const info = getStatusInfo(t);
+                if (t.fechaInicio) allDates.push(new Date(t.fechaInicio + 'T00:00:00'));
+                if (info.fechaCompromiso) allDates.push(new Date(info.fechaCompromiso + 'T00:00:00'));
+                if (t.fechaCierre) allDates.push(new Date(t.fechaCierre + 'T00:00:00'));
+            });
+
+            if (allDates.length === 0) allDates.push(new Date());
+
+            let minDate = new Date(Math.min(...allDates));
+            let maxDate = new Date(Math.max(...allDates, new Date()));
+
+            let startYear = minDate.getFullYear();
+            let startMonth = minDate.getMonth();
+
+            let endYear = maxDate.getFullYear();
+            let endMonth = maxDate.getMonth() + 1;
+            if (endMonth > 11) {
+                endMonth = 0;
+                endYear++;
+            }
+
+            let monthsList = [];
+            let curr = new Date(startYear, startMonth, 1);
+            let limit = new Date(endYear, endMonth, 1);
+
+            const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+            while (curr <= limit) {
+                monthsList.push({
+                    year: curr.getFullYear(),
+                    month: curr.getMonth(),
+                    label: `${monthNames[curr.getMonth()]} ${curr.getFullYear()}`
+                });
+                curr.setMonth(curr.getMonth() + 1);
+            }
+
+            const totalTimelineStart = new Date(monthsList[0].year, monthsList[0].month, 1);
+            const lastM = monthsList[monthsList.length - 1];
+            const totalTimelineEnd = new Date(lastM.year, lastM.month + 1, 0);
+            const totalDays = Math.max(1, Math.ceil((totalTimelineEnd - totalTimelineStart) / (1000 * 60 * 60 * 24)));
+
+            let globalStartDates = [];
+            let globalEndDates = [];
+            tramites.forEach(t => {
+                if (t.fechaInicio) globalStartDates.push(new Date(t.fechaInicio + 'T00:00:00'));
+                const info = getStatusInfo(t);
+                const fin = t.fechaCierre ? new Date(t.fechaCierre + 'T00:00:00') : new Date(info.fechaCompromiso + 'T00:00:00');
+                globalEndDates.push(fin);
+            });
+
+            const globalMinDate = new Date(Math.min(...globalStartDates));
+            const globalMaxDate = new Date(Math.max(...globalEndDates));
+
+            let globalStartLeftPct = Math.max(0, Math.min(100, ((globalMinDate - totalTimelineStart) / (1000 * 60 * 60 * 24) / totalDays) * 100));
+            let globalEndLeftPct = Math.max(0, Math.min(100, ((globalMaxDate - totalTimelineStart) / (1000 * 60 * 60 * 24) / totalDays) * 100));
+
+            let headerHTML = `
+                <div class="flex border-b border-slate-200 bg-slate-100 text-xs font-bold text-slate-700 sticky top-0 z-10">
+                    <div class="w-80 min-w-[300px] p-3 border-r border-slate-200 bg-slate-100 flex items-center justify-between">
+                        <span>TRÁMITE / DEPENDENCIA</span>
+                        <span class="text-[10px] text-slate-400 font-normal">PLAZO OFICIAL</span>
+                    </div>
+                    <div class="flex-1 flex divide-x divide-slate-200">
+            `;
+
+            monthsList.forEach(m => {
+                headerHTML += `<div class="flex-1 min-w-[100px] text-center p-3 font-semibold uppercase tracking-wider text-slate-600">${m.label}</div>`;
+            });
+
+            headerHTML += `</div></div>`;
+
+            let rowsHTML = `<div class="divide-y divide-slate-200 relative">`;
+
+            rowsHTML += `
+                <div class="absolute inset-y-0 w-0.5 border-l-2 border-dashed border-amber-500 z-20 pointer-events-none" style="left: calc(300px + (100% - 300px) * ${globalStartLeftPct / 100});" title="Primer Inicio del Proyecto">
+                    <span class="bg-amber-500 text-slate-900 text-[9px] font-extrabold px-1 py-0.5 rounded shadow absolute -top-2 -translate-x-1/2 whitespace-nowrap">INICIO PROYECTO</span>
+                </div>
+                <div class="absolute inset-y-0 w-0.5 border-l-2 border-dashed border-amber-500 z-20 pointer-events-none" style="left: calc(300px + (100% - 300px) * ${globalEndLeftPct / 100});" title="Último Cierre / Término Proyectado">
+                    <span class="bg-amber-500 text-slate-900 text-[9px] font-extrabold px-1 py-0.5 rounded shadow absolute -top-2 -translate-x-1/2 whitespace-nowrap">FIN PROYECTADO</span>
+                </div>
+            `;
+
+            tramites.forEach(item => {
+                const info = getStatusInfo(item);
+                const dInicio = new Date(item.fechaInicio + 'T00:00:00');
+                const dCompromiso = new Date(info.fechaCompromiso + 'T00:00:00');
+                const dFin = item.fechaCierre ? new Date(item.fechaCierre + 'T00:00:00') : new Date();
+
+                let startOffsetDays = (dInicio - totalTimelineStart) / (1000 * 60 * 60 * 24);
+                let durationDays = Math.max(1, (dFin - dInicio) / (1000 * 60 * 60 * 24));
+                
+                let leftPct = Math.max(0, Math.min(100, (startOffsetDays / totalDays) * 100));
+                let widthPct = Math.max(1.5, Math.min(100 - leftPct, (durationDays / totalDays) * 100));
+
+                let compOffsetDays = (dCompromiso - totalTimelineStart) / (1000 * 60 * 60 * 24);
+                let compLeftPct = Math.max(0, Math.min(100, (compOffsetDays / totalDays) * 100));
+
+                const statusTag = info.desfaseHabiles <= 0 
+                    ? `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">A TIEMPO</span>`
+                    : `<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-1.5 py-0.5 rounded">+${info.desfaseHabiles}d hábiles</span>`;
+
+                rowsHTML += `
+                    <div class="flex hover:bg-slate-50 transition group">
+                        <div class="w-80 min-w-[300px] p-3 border-r border-slate-200 flex flex-col justify-center">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-[10px] font-mono font-bold text-slate-400">${item.codigo}</span>
+                                ${statusTag}
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-xs truncate mt-0.5" title="${item.nombre}">${item.nombre}</h4>
+                            <p class="text-[11px] text-slate-500 truncate">${item.responsable}</p>
+                            <div class="text-[10px] font-mono text-slate-500 mt-1">
+                                Oficial: <strong class="text-blue-700">${item.diasHabilesOficiales}d hábiles</strong> | Límite: <strong class="text-slate-800">${info.fechaCompromiso}</strong>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 relative flex divide-x divide-slate-100 bg-slate-50/30 py-4">
+                `;
+
+                monthsList.forEach(() => {
+                    rowsHTML += `<div class="flex-1 min-w-[100px] h-full"></div>`;
+                });
+
+                rowsHTML += `
+                    <div class="absolute inset-y-0 my-auto h-7 rounded-md shadow-sm ${info.barColor} text-white text-[10px] font-bold flex items-center px-2 truncate transition-all group-hover:brightness-95 z-10"
+                         style="left: ${leftPct}%; width: ${widthPct}%;"
+                         title="Inicio: ${item.fechaInicio} | Cierre Real: ${item.fechaCierre || 'En proceso'} (${info.diasHabilesReales} días hábiles transcurridos)">
+                        <span class="truncate">${item.fechaCierre ? 'Cierre: ' + item.fechaCierre : 'En proceso (' + info.diasHabilesReales + 'd hábiles)'}</span>
+                    </div>
+                `;
+
+                rowsHTML += `
+                    <div class="absolute inset-y-0 my-auto w-0.5 bg-slate-900 z-10 flex flex-col items-center"
+                         style="left: ${compLeftPct}%;"
+                         title="Límite Prometido por Dependencia: ${info.fechaCompromiso} (${item.diasHabilesOficiales} días hábiles)">
+                        <div class="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1 rounded-sm"></div>
+                    </div>
+                `;
+
+                rowsHTML += `</div></div>`;
+            });
+
+            rowsHTML += `</div>`;
+
+            container.innerHTML = headerHTML + rowsHTML;
+        }
+
+        // --- GUARDADO INSTANTÁNEO EN PESTAÑA HABITAT ---
+        async function saveTramite(e) {
+            e.preventDefault();
+            
+            const errorDiv = document.getElementById("error-validacion");
+            errorDiv.classList.add("hidden");
+
+            const id = document.getElementById("item-id").value;
+            const nombre = document.getElementById("nombre").value.trim();
+            const responsable = document.getElementById("responsable").value.trim();
+            const fechaInicio = normalizarFecha(document.getElementById("fechaInicio").value);
+            const diasHabilesOficiales = parseInt(document.getElementById("diasHabilesOficiales").value, 10);
+            const fechaCierre = normalizarFecha(document.getElementById("fechaCierre").value);
+
+            if (diasHabilesOficiales <= 0 || isNaN(diasHabilesOficiales)) {
+                mostrarError("El plazo debe ser mayor a 0 días hábiles.");
+                return;
+            }
+
+            if (fechaCierre && fechaCierre < fechaInicio) {
+                mostrarError("La Fecha de Cierre Real no puede ser anterior a la Fecha de Inicio.");
+                return;
+            }
+
+            const idFinal = id || "HAB_" + Date.now();
+            const payload = {
+                id: idFinal,
+                nombre,
+                dependencia: responsable,
+                plazo: diasHabilesOficiales,
+                inicio: fechaInicio,
+                cierre: fechaCierre || "",
+                notas: ""
+            };
+
+            const action = id ? "update" : "create";
+
+            // Actualización optimista inmediata
+            if (id) {
+                const idx = tramites.findIndex(t => t.id == id);
+                if (idx !== -1) {
+                    tramites[idx] = {
+                        ...tramites[idx],
+                        nombre,
+                        responsable,
+                        fechaInicio,
+                        diasHabilesOficiales,
+                        fechaCierre
+                    };
+                }
+            } else {
+                const nextNum = tramites.length + 1;
+                tramites.push({
+                    id: idFinal,
+                    codigo: `HAB-TR-${String(nextNum).padStart(3, '0')}`,
+                    nombre,
+                    responsable,
+                    fechaInicio,
+                    diasHabilesOficiales,
+                    fechaCierre
+                });
+            }
+
+            render();
+            closeModal();
+
+            // Guardado en servidor en pestaña HABITAT
+            try {
+                fetch(API_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ pin: getPIN(), hoja: "HABITAT", action, data: payload })
+                });
+            } catch (err) {
+                console.error("Error al sincronizar en segundo plano:", err);
+            }
+        }
+
+        function mostrarError(msg) {
+            const errorDiv = document.getElementById("error-validacion");
+            errorDiv.innerText = msg;
+            errorDiv.classList.remove("hidden");
+        }
+
+        // --- ELIMINAR TRÁMITE DE PESTAÑA HABITAT ---
+        async function deleteTramite(id) {
+            if (!confirm("¿Estás seguro de eliminar este trámite de HABITAT?")) return;
+
+            tramites = tramites.filter(t => t.id != id);
+            render();
+
+            try {
+                fetch(API_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ pin: getPIN(), hoja: "HABITAT", action: "delete", data: { id } })
+                });
+            } catch (err) {
+                console.error("Error al eliminar en segundo plano:", err);
+            }
+        }
+
+        function openModal() {
+            document.getElementById("form-tramite").reset();
+            document.getElementById("item-id").value = "";
+            document.getElementById("error-validacion").classList.add("hidden");
+            document.getElementById("modal-title").innerText = "Agregar Trámite HABITAT";
+            document.getElementById("fechaInicio").value = new Date().toISOString().split('T')[0];
+            document.getElementById("fechaCompromisoCalculadaText").innerText = "Selecciona fecha y días hábiles";
+            document.getElementById("modal-form").classList.remove("hidden");
+        }
+
+        function closeModal() {
+            document.getElementById("modal-form").classList.add("hidden");
+        }
+
+        function editTramite(id) {
+            const item = tramites.find(t => t.id == id);
+            if (!item) return;
+
+            document.getElementById("item-id").value = item.id;
+            document.getElementById("nombre").value = item.nombre;
+            document.getElementById("responsable").value = item.responsable;
+            document.getElementById("fechaInicio").value = normalizarFecha(item.fechaInicio);
+            document.getElementById("diasHabilesOficiales").value = item.diasHabilesOficiales;
+            document.getElementById("fechaCierre").value = normalizarFecha(item.fechaCierre);
+            document.getElementById("error-validacion").classList.add("hidden");
+
+            updateCalculatedCompromiso();
+
+            document.getElementById("modal-title").innerText = "Editar Trámite HABITAT";
+            document.getElementById("modal-form").classList.remove("hidden");
+        }
+
+        // --- EXPORTAR A CSV ---
+        function exportCSV() {
+            if (!tramites || tramites.length === 0) {
+                alert("No hay trámites registrados para exportar.");
+                return;
+            }
+
+            let csvString = "\uFEFF";
+            csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Plazo (Dias Habiles),Fecha Cierre Real\n";
+
+            tramites.forEach(t => {
+                const row = [
+                    `"${t.codigo || t.id}"`,
+                    `"${(t.nombre || '').replace(/"/g, '""')}"`,
+                    `"${(t.responsable || '').replace(/"/g, '""')}"`,
+                    `"${normalizarFecha(t.fechaInicio)}"`,
+                    `"${t.diasHabilesOficiales || 0}"`,
+                    `"${normalizarFecha(t.fechaCierre)}"`
+                ];
+                csvString += row.join(",") + "\n";
+            });
+
+            const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Tramites_HABITAT_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- GENERAR PDF MULTIPÁGINA COMPLETO ---
+        function generarPDF(e) {
+            const elemento = document.getElementById("contenido-reporte");
+            const btnPdf = e ? e.currentTarget : document.querySelector("button[onclick*='generarPDF']");
+
+            const elementosNoPrint = document.querySelectorAll('.no-print');
+            const contenedoresScroll = document.querySelectorAll('.overflow-x-auto');
+
+            elementosNoPrint.forEach(el => el.style.display = 'none');
+            contenedoresScroll.forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.maxWidth = 'none';
+            });
+
+            const opciones = {
+                margin: [0.3, 0.3, 0.3, 0.3],
+                filename: `Reporte_HABITAT_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1280 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            if (btnPdf) btnPdf.disabled = true;
+
+            html2pdf().set(opciones).from(elemento).save().then(() => {
+                elementosNoPrint.forEach(el => el.style.display = '');
+                contenedoresScroll.forEach(el => {
+                    el.style.overflow = '';
+                    el.style.maxWidth = '';
+                });
+                if (btnPdf) btnPdf.disabled = false;
+            }).catch(err => {
+                console.error("Error al generar PDF:", err);
+                elementosNoPrint.forEach(el => el.style.display = '');
+                contenedoresScroll.forEach(el => {
+                    el.style.overflow = '';
+                    el.style.maxWidth = '';
+                });
+                if (btnPdf) btnPdf.disabled = false;
+            });
+        }
+
+        setInterval(() => {
+            if (getPIN()) cargarDatos();
+        }, 20000);
+
+        window.addEventListener("DOMContentLoaded", () => {
+            comprobarSesion();
+        });
+    </script>
+</body>
+</html>
