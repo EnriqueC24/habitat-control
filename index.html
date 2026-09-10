@@ -932,18 +932,7 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
-
-            const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `Tramites_HABITAT_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
+        
         // --- GENERAR PDF MULTIPÁGINA COMPLETO ---
         function generarPDF(e) {
             const elemento = document.getElementById("contenido-reporte");
