@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Trámites y Línea de Tiempo - HABITAT</title>
+    <title>Control de Trámites y Línea de Tiempo - HABITAT.</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -33,8 +33,8 @@
                 <i class="fa-solid fa-lock"></i>
             </div>
             <div>
-                <h2 class="text-xl font-bold text-slate-900">Acceso Restringido</h2>
-                <p class="text-xs text-slate-500 mt-1">Ingresa el PIN de seguridad para acceder al Proyecto Habitat.</p>
+                <h2 class="text-xl font-bold text-slate-900">Acceso Restringido HABITAT</h2>
+                <p class="text-xs text-slate-500 mt-1">Ingresa el PIN de seguridad para acceder al Panel de Control.</p>
             </div>
 
             <form onsubmit="validarPIN(event)" class="space-y-3">
@@ -894,7 +894,7 @@
             document.getElementById("modal-form").classList.remove("hidden");
         }
 
-        // --- EXPORTAR A CSV CON TODAS LAS COLUMNAS CALCULADAS ---
+        // --- EXPORTAR A CSV CON TODAS LAS 10 COLUMNAS DE LA TABLA ---
         function exportCSV() {
             if (!tramites || tramites.length === 0) {
                 alert("No hay trámites registrados para exportar.");
@@ -902,11 +902,15 @@
             }
 
             let csvString = "\uFEFF";
-            // Encabezados idénticos a los de la tabla visual
-            csvString += "ID,Nombre del Tramite,Dependencia,Fecha Inicio,Dias Habiles Oficiales,F. Compromiso Calc.,Fecha Cierre Real,Dias Habiles Reales,Desfase Habiles,Evaluacion Dependencia\n";
+            // Encabezados idénticos a la tabla de HABITAT
+            csvString += "ID / Tramite,Nombre del Tramite,Dependencia / Responsable,Fecha Inicio,Dias Habiles Oficiales,F. Compromiso Calc.,Fecha Cierre Real,Dias Habiles Reales,Desfase Habiles,Evaluacion Dependencia\n";
 
             tramites.forEach(t => {
                 const info = getStatusInfo(t);
+                let desfaseTexto = "";
+                if (info.desfaseHabiles > 0) desfaseTexto = `+${info.desfaseHabiles} días hábiles`;
+                else desfaseTexto = `${info.desfaseHabiles} días hábiles`;
+
                 const row = [
                     `"${t.codigo || t.id}"`,
                     `"${(t.nombre || '').replace(/"/g, '""')}"`,
@@ -914,9 +918,9 @@
                     `"${normalizarFecha(t.fechaInicio)}"`,
                     `"${t.diasHabilesOficiales || 0}"`,
                     `"${info.fechaCompromiso}"`,
-                    `"${normalizarFecha(t.fechaCierre)}"`,
+                    `"${normalizarFecha(t.fechaCierre) || 'En proceso'}"`,
                     `"${info.diasHabilesReales}"`,
-                    `"${info.desfaseHabiles > 0 ? '+' + info.desfaseHabiles : info.desfaseHabiles}"`,
+                    `"${desfaseTexto}"`,
                     `"${info.indicador}"`
                 ];
                 csvString += row.join(",") + "\n";
@@ -932,7 +936,7 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
-        
+
         // --- GENERAR PDF MULTIPÁGINA COMPLETO ---
         function generarPDF(e) {
             const elemento = document.getElementById("contenido-reporte");
