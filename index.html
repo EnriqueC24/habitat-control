@@ -410,6 +410,10 @@
                 diasHabilesOficiales: parseInt(item.plazo || item.diasHabilesOficiales, 10) || 0,
                 fechaCierre: normalizarFecha(item.cierre || item.fechaCierre)
             }));
+
+            // Ordenar por Fecha de Inicio (Recientes primero)
+            tramites.sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio));
+
             render();
         }
 
