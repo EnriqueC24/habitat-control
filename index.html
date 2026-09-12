@@ -411,8 +411,8 @@
                 fechaCierre: normalizarFecha(item.cierre || item.fechaCierre)
             }));
 
-            // Ordenar por Fecha de Inicio (Recientes primero)
-            tramites.sort((a, b) => new Date(b.fechaInicio) - new Date(a.fechaInicio));
+            // Ordenar por Fecha de Inicio (Viejas primero)
+            tramites.sort((a, b) => new Date(a.fechaInicio + "T00:00:00") - new Date(b.fechaInicio + "T00:00:00"));
 
             render();
         }
